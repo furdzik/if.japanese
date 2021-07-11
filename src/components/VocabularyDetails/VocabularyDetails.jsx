@@ -2,9 +2,17 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useIntl } from 'react-intl';
 
-import { grammarTypes } from '@config/constants';
+import { grammarTypes, tagTypes } from '@config/constants';
 
 import { verbItemShape } from '@types/verbShape';
+import {
+  translationsShape,
+  metadataShape,
+  statusShape,
+  kanjiPartsShape,
+  otherFormsShape
+} from '@types/vocabularyDetailsShape';
+import { tagsShape } from '@types/commonDetailsShape';
 
 import Modal from '@components/ui/Modal';
 
@@ -16,8 +24,8 @@ import conjugationMessages from '@utils/defaultMessages/conjugation.messages';
 
 import {
   ConjugationLink,
-  SensesList,
-  SensesListItem,
+  TranslationsList,
+  TranslationsListItem,
   AdditionalInfo,
   PartOfSpeechWrapper,
   PartOfSpeechBox,
@@ -31,34 +39,26 @@ import messages from './VocabularyDetails.messages';
 const VocabularyDetails = (props) => {
   const intl = useIntl();
   const [conjugationOpen, setConjugationOpen] = useState(false);
+  console.log(props);
 
   const getTags = () => {
     const tags = [];
 
-    if (props.isVerb) {
-      tags.push(
-        <Tag isVerb>
-          <ConjugationLink type="button" onClick={() => setConjugationOpen(true)}>
-            {intl.formatMessage(messages.conjugationText)}
-          </ConjugationLink>
-        </Tag>
-      );
-    }
-    if (props.isCommon) {
-      tags.push(
-        <Tag isCommon>{intl.formatMessage(messages.common)}</Tag>
-      );
-    }
-    if (props.jlpt) {
-      props.jlpt.forEach((el, index) => {
-        // eslint-disable-next-line react/no-array-index-key
-        tags.push(<Tag isJlpt key={index}>{el}</Tag>);
-      });
-    }
     if (props.tags) {
       props.tags.forEach((el, index) => {
-        // eslint-disable-next-line react/no-array-index-key
-        tags.push(<Tag key={index}>{el}</Tag>);
+        if (el.tagType === tagTypes.IS_VERB) {
+          tags.push(
+            // eslint-disable-next-line react/no-array-index-key
+            <Tag tagType={el.tagType} key={index}>
+              <ConjugationLink type="button" onClick={() => setConjugationOpen(true)}>
+                {el.label}
+              </ConjugationLink>
+            </Tag>
+          );
+        } else {
+          // eslint-disable-next-line react/no-array-index-key
+          tags.push(<Tag tagType={el.tagType} key={index}>{el.label}</Tag>);
+        }
       });
     }
 
@@ -68,45 +68,37 @@ const VocabularyDetails = (props) => {
   return (
     <Details
       name={props.name}
-      reading={props.reading}
-      known={props.known}
-      inProgress={props.inProgress}
-      nowLearning={props.nowLearning}
-      jishoLink={`https://jisho.org/word/${props.slug}`}
+      meaning={props.meaning}
+      known={props.status.known}
+      inProgress={props.status.inProgress}
+      nowLearning={props.status.nowLearning}
+      jishoLink={`https://jisho.org/word/${props.metadata.slug}`}
       tags={getTags()}
       additionalBox={(
-        <React.Fragment>
-          {
-            !props.antonyms && props.senses && props.senses
-              .map((el, key) => el.antonyms.map((antonyms) => (
-                // eslint-disable-next-line react/no-array-index-key
-                <AntonymsBox key={`${antonyms}_${key}`}>
-                  {intl.formatMessage(messages.antonymText)}
-                  <AntonymsLink to={`/vocab/${antonyms}`}>{antonyms}</AntonymsLink>
-                </AntonymsBox>
-              )))
-          }
-          {
-            props.antonyms ? (
-              <AntonymsBox key={props.antonyms}>
-                {intl.formatMessage(messages.antonymText)}
-                <AntonymsLink to={`/vocab/${props.antonyms}`}>{props.antonyms}</AntonymsLink>
-              </AntonymsBox>
-            ) : null
-          }
-        </React.Fragment>
+        props.antonyms.length > 0 ? (
+          <AntonymsBox key={props.antonyms}>
+            {intl.formatMessage(messages.antonymText)}
+            {
+              props.antonyms.map((antonym) => (
+                <AntonymsLink key={antonym} to={`/vocab/${antonym}`}>
+                  {antonym}
+                </AntonymsLink>
+              ))
+            }
+          </AntonymsBox>
+        ) : null
       )}
       mainSectionHeader={intl.formatMessage(messages.mainHeader)}
       mainSection={(
-        <SensesList>
+        <TranslationsList>
           {
-            props.senses && props.senses.map((el, index) => (
+            props.translations && props.translations.map((el, index) => (
               // eslint-disable-next-line react/no-array-index-key
-              <SensesListItem number={index + 1} key={index}>
+              <TranslationsListItem number={index + 1} key={index}>
                 <div>
                   <PartOfSpeechWrapper>
                     {
-                      el.parts_of_speech.map((s, key) => (
+                      el.partsOfSpeech.map((s, key) => (
                         // eslint-disable-next-line react/no-array-index-key
                         <PartOfSpeechBox key={key}>{s}</PartOfSpeechBox>
                       ))
@@ -115,11 +107,11 @@ const VocabularyDetails = (props) => {
                   <div>
                     {
                       // eslint-disable-next-line no-shadow
-                      el.english_definitions.map((def, index) => (
+                      el.englishDefinitions.map((def, index) => (
                         // eslint-disable-next-line react/no-array-index-key
                         <React.Fragment key={index}>
                           {def}
-                          {el.english_definitions.length !== index + 1 ? ', ' : ''}
+                          {el.englishDefinitions.length !== index + 1 ? ', ' : ''}
                         </React.Fragment>
                       ))
                     }
@@ -127,10 +119,12 @@ const VocabularyDetails = (props) => {
                     <AdditionalInfo>{el.tags.join(', ')}</AdditionalInfo>
                   </div>
                 </div>
-              </SensesListItem>
+              </TranslationsListItem>
             ))
           }
-        </SensesList>
+          {/* @TODO other forms */}
+          {console.log(props.otherForms)}
+        </TranslationsList>
       )}
       secondarySection={props.kanjiParts ? (
         <KanjiParts>
@@ -264,38 +258,27 @@ const VocabularyDetails = (props) => {
 };
 
 VocabularyDetails.propTypes = {
+  meaning: PropTypes.string.isRequired,
+  metadata: metadataShape.isRequired,
   name: PropTypes.string.isRequired,
-  senses: PropTypes.arrayOf(PropTypes.object).isRequired,
+  status: statusShape.isRequired,
+  translations: translationsShape.isRequired,
   additionalExplanation: PropTypes.string,
-  antonyms: PropTypes.string,
+  antonyms: PropTypes.arrayOf(PropTypes.string),
   examples: PropTypes.arrayOf(PropTypes.string),
-  inProgress: PropTypes.bool,
-  isCommon: PropTypes.bool,
-  isVerb: PropTypes.bool,
-  jlpt: PropTypes.arrayOf(PropTypes.string),
-  kanjiParts: PropTypes.arrayOf(PropTypes.object),
-  known: PropTypes.bool,
-  nowLearning: PropTypes.bool,
-  reading: PropTypes.string,
-  slug: PropTypes.string,
-  tags: PropTypes.arrayOf(PropTypes.string),
+  kanjiParts: kanjiPartsShape,
+  otherForms: otherFormsShape,
+  tags: tagsShape,
   verb: verbItemShape
 };
 
 VocabularyDetails.defaultProps = {
   additionalExplanation: null,
   antonyms: null,
-  examples: [],
-  inProgress: false,
-  isCommon: null,
-  isVerb: false,
-  jlpt: [],
+  examples: null,
   kanjiParts: null,
-  known: false,
-  nowLearning: false,
-  reading: '',
-  slug: null,
-  tags: [],
+  otherForms: null,
+  tags: null,
   verb: null
 };
 
